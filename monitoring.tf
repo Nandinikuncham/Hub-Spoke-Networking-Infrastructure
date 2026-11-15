@@ -12,6 +12,16 @@ resource "azurerm_log_analytics_workspace" "vm_monitoring" {
   retention_in_days   = 30
 }
 
+resource "azurerm_monitor_diagnostic_setting" "sql_database" {
+  name                       = "sql-basic-metrics-to-workspace"
+  target_resource_id         = azapi_resource.sql_database.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.vm_monitoring.id
+
+  enabled_metric {
+    category = "Basic"
+  }
+}
+
 resource "azurerm_monitor_data_collection_rule" "linux_performance" {
   name                = "dcr-hub-spoke-linux-performance"
   location            = var.location
@@ -75,7 +85,7 @@ resource "azurerm_application_insights_workbook" "vm_health" {
   display_name        = "Hub-Spoke VM Health"
   category            = "workbook"
   source_id           = lower(azurerm_log_analytics_workspace.vm_monitoring.id)
-  description         = "CPU, memory, and disk usage for the three spoke Linux VMs."
+  description         = "CPU, memory, disk, and Azure SQL database performance for the spoke workloads."
 
   data_json = jsonencode({
     version = "Notebook/1.0"
@@ -84,7 +94,7 @@ resource "azurerm_application_insights_workbook" "vm_health" {
         type = 1
         name = "monitoring-overview"
         content = {
-          json = "# Hub-Spoke VM Health\nThis workbook displays CPU, memory, and disk usage for the three spoke Linux VMs. Data is collected every 60 seconds by Azure Monitor Agent and stored in the shared Log Analytics workspace."
+          json = "# Hub-Spoke VM Health\nThis workbook displays CPU, memory, and disk usage for the three spoke Linux VMs, plus basic performance metrics for the private Azure SQL database."
         }
       },
       {
@@ -100,7 +110,7 @@ resource "azurerm_application_insights_workbook" "vm_health" {
             | render timechart
           KQL
           size          = 0
-          title         = "CPU, memory, and disk usage - last hour"
+          title         = "VM CPU, memory, and disk usage - last hour"
           queryType     = 0
           resourceType  = "microsoft.operationalinsights/workspaces"
           visualization = "timechart"
@@ -120,7 +130,55 @@ resource "azurerm_application_insights_workbook" "vm_health" {
             | order by Computer asc, CounterName asc
           KQL
           size          = 1
-          title         = "Latest measurements"
+          title         = "Latest VM measurements"
+          queryType     = 0
+          resourceType  = "microsoft.operationalinsights/workspaces"
+          visualization = "table"
+        }
+      },
+      {
+        type = 1
+        name = "sql-overview"
+        content = {
+          json = "## Azure SQL Database\nBasic SQL metrics are streamed to this workspace by the SQL database diagnostic setting."
+        }
+      },
+      {
+        type = 3
+        name = "sql-performance-chart"
+        content = {
+          version       = "KqlItem/1.0"
+          query         = <<-KQL
+            AzureMetrics
+            | where TimeGenerated > ago(1h)
+            | where _ResourceId =~ "${azapi_resource.sql_database.id}"
+            | where MetricName in ("cpu_percent", "physical_data_read_percent", "log_write_percent", "sessions_percent", "workers_percent", "storage_percent")
+            | summarize AverageValue = avg(Average) by MetricName, bin(TimeGenerated, 5m)
+            | render timechart
+          KQL
+          size          = 0
+          title         = "SQL CPU, I/O, sessions, workers, and storage - last hour"
+          queryType     = 0
+          resourceType  = "microsoft.operationalinsights/workspaces"
+          visualization = "timechart"
+        }
+      },
+      {
+        type = 3
+        name = "latest-sql-performance"
+        content = {
+          version       = "KqlItem/1.0"
+          query         = <<-KQL
+            AzureMetrics
+            | where TimeGenerated > ago(15m)
+            | where _ResourceId =~ "${azapi_resource.sql_database.id}"
+            | where MetricName in ("cpu_percent", "physical_data_read_percent", "log_write_percent", "sessions_percent", "workers_percent", "storage_percent")
+            | summarize arg_max(TimeGenerated, Average) by MetricName
+            | project MetricName, Value = round(Average, 2), TimeGenerated
+            | order by MetricName asc
+          KQL
+          size          = 1
+          title         = "Latest SQL database measurements"
           queryType     = 0
           resourceType  = "microsoft.operationalinsights/workspaces"
           visualization = "table"
@@ -128,6 +186,6 @@ resource "azurerm_application_insights_workbook" "vm_health" {
       }
     ]
     isLocked            = false
-    fallbackResourceIds = [lower(azurerm_log_analytics_workspace.vm_monitoring.id)]
+    fallbackResourceIds = [lower(azurerm_log_analytics_workspace.vm_monitoring.id), lower(azapi_resource.sql_database.id)]
   })
 }

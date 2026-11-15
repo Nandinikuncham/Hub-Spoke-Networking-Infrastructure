@@ -118,6 +118,18 @@ resource "azurerm_network_security_group" "spoke" {
   }
 
   security_rule {
+    name                       = "Allow-Azure-LB-Probe-SSH"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "AzureLoadBalancer"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
     name                       = "Deny-Other-VNet-Inbound"
     priority                   = 4000
     direction                  = "Inbound"

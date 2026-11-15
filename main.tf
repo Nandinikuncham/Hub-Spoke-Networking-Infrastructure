@@ -193,6 +193,9 @@ resource "azurerm_linux_virtual_machine" "jump" {
   admin_username                  = var.admin_username
   admin_password                  = var.admin_password
   disable_password_authentication = false
+  identity {
+    type = "SystemAssigned"
+  }
   network_interface_ids           = [azurerm_network_interface.jump.id]
 
   os_disk {
@@ -237,6 +240,9 @@ resource "azurerm_linux_virtual_machine" "spoke" {
   admin_username                  = var.admin_username
   admin_password                  = var.admin_password
   disable_password_authentication = false
+  identity {
+    type = "SystemAssigned"
+  }
   network_interface_ids           = [azurerm_network_interface.spoke[each.key].id]
 
   os_disk {

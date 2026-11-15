@@ -17,7 +17,6 @@ resource "azurerm_recovery_services_vault" "shared" {
   resource_group_name = azurerm_resource_group.identity.name
   sku                 = "Standard"
   storage_mode_type   = "GeoRedundant"
-  soft_delete_enabled = true
 }
 
 resource "azurerm_network_watcher" "shared" {

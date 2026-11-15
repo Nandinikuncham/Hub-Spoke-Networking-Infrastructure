@@ -1,6 +1,6 @@
 # Hub-Spoke-Networking-Infrastructure
 
-Terraform project for an Azure hub-and-spoke network in Central India. It creates five Ubuntu VMs: one hub jump VM and one private VM in each spoke. The hub VM is the only VM with a public IP; hub-to-spoke communication uses VNet peering.
+Terraform project for an Azure hub-and-spoke network in Central India. It creates five Ubuntu VMs: one hub jump VM and one private VM in each spoke. Each spoke has a private Standard load balancer for SSH access through the hub.
 
 ## Architecture
 
@@ -17,10 +17,11 @@ See [architecture.md](./architecture.md) for the network diagram and access boun
 ## What's included
 
 - `main.tf` — hub, four spokes, subnets, NSGs, bidirectional hub peering, one public jump VM, and four private spoke VMs.
+- `load_balancer.tf` — one Standard internal load balancer per spoke, with a private frontend and a TCP 22 probe/rule.
 - `monitoring.tf` — Azure Monitor Linux Agent, performance data collection rule, Log Analytics workspace, and VM health workbook.
 - `variables.tf` — network inputs, `azureuser`, sensitive password input, and input validation.
 - `versions.tf` — Terraform and AzureRM provider requirements; managed OS disks are deleted with their VMs.
-- `outputs.tf` — hub and spoke IPs plus monitoring workspace and workbook identifiers.
+- `outputs.tf` — hub, spoke VM, and spoke load-balancer IPs plus monitoring workspace and workbook identifiers.
 - `terraform.tfvars.example` — safe template; copy it to the ignored local `terraform.tfvars` and replace sample values.
 - `.gitignore` — excludes Terraform state, local variables, and generated plans.
 - `.github/workflows/terraform-validation.yml` — formatting and configuration validation on pushes and pull requests.
@@ -84,13 +85,19 @@ $hubIp = terraform output -raw jump_vm_public_ip
 ssh "azureuser@$hubIp"
 ```
 
-The spoke VMs have no public IP. On the hub VM, connect to a spoke using its private IP and the same username/password. Get the IP mapping on your workstation with `terraform output -json spoke_vm_private_ips`, then run on the hub:
+From the workstation, get the private frontend IP mapping for the spoke load balancers:
 
-```bash
-ssh azureuser@<spoke-private-ip>
+```powershell
+terraform output -json spoke_lb_private_ips
 ```
 
-The spoke NSGs permit SSH only from the hub management subnet. If your public IP changes, update the `/32` in `terraform.tfvars` and apply the change.
+On the hub jump VM, connect to a spoke through its internal load balancer using the matching private frontend IP (the frontends use `.10` in their respective spoke subnets):
+
+```bash
+ssh azureuser@<spoke-load-balancer-private-ip>
+```
+
+Each load balancer has one VM in its backend pool. It provides a private TCP 22 entry point, but does not distribute SSH sessions across multiple VMs or provide VM failover. The spoke NSGs allow the Azure load-balancer health probe as well as SSH from the hub management subnet. If your public IP changes, update the `/32` in `terraform.tfvars` and apply the change.
 
 ## VM monitoring dashboard
 
@@ -107,4 +114,4 @@ Log Analytics ingestion and retention can incur charges. Review workspace usage 
 
 ## Costs and cleanup
 
-Running five VMs, their managed OS disks, the Standard public IP, and Log Analytics ingestion/retention can incur charges; do not assume the Azure free trial covers every resource. The provider is configured to delete managed OS disks when their VMs are deleted. When finished with this lab, review the plan and run `terraform destroy`. The existing resource group itself is not managed by this configuration.
+Running five VMs, their managed OS disks, the Standard public IP, four Standard internal load balancers, and Log Analytics ingestion/retention can incur charges; do not assume the Azure free trial covers every resource. The provider is configured to delete managed OS disks when their VMs are deleted. When finished with this lab, review the plan and run `terraform destroy`. The existing resource group itself is not managed by this configuration.

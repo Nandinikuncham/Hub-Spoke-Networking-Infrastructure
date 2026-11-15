@@ -17,9 +17,16 @@ output "jump_vm_private_ip" {
 }
 
 output "spoke_vm_private_ips" {
-  description = "Private IPs of the spoke VMs; connect to these from the hub jump VM"
+  description = "Private IPs of the spoke VMs"
   value = {
     for key, nic in azurerm_network_interface.spoke : key => nic.private_ip_address
+  }
+}
+
+output "spoke_lb_private_ips" {
+  description = "Private frontend IPs of the spoke SSH load balancers; connect from the hub jump VM"
+  value = {
+    for key, lb in azurerm_lb.spoke_ssh : key => lb.frontend_ip_configuration[0].private_ip_address
   }
 }
 

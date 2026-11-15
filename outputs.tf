@@ -28,3 +28,13 @@ output "spoke_vnet_names" {
     for key, vnet in azurerm_virtual_network.spoke : key => vnet.name
   }
 }
+
+output "monitoring_workspace_name" {
+  description = "Log Analytics workspace receiving VM performance metrics"
+  value       = azurerm_log_analytics_workspace.vm_monitoring.name
+}
+
+output "monitoring_workbook_id" {
+  description = "Azure resource ID of the Hub-Spoke VM Health workbook"
+  value       = azurerm_application_insights_workbook.vm_health.id
+}

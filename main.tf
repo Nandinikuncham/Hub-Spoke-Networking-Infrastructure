@@ -35,7 +35,7 @@ resource "azurerm_resource_group" "identity" {
 }
 
 resource "azurerm_resource_group" "shared_data" {
-  name     = var.shared_data_resource_group_name
+  name     = var.database_resource_group_name
   location = var.location
 }
 

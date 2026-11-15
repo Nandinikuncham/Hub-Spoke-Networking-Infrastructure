@@ -29,7 +29,7 @@ resource "azapi_resource" "sql_database" {
       maxSizeBytes                     = 34359738368
       requestedBackupStorageRedundancy = "Local"
       isFreeLimitEnabled               = true
-      freeLimitExhaustionBehavior       = "AutoPause"
+      freeLimitExhaustionBehavior      = "AutoPause"
     }
   }
 }

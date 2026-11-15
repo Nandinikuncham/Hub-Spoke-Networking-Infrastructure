@@ -1,6 +1,6 @@
 # Hub-Spoke-Networking-Infrastructure
 
-A personal infrastructure-as-code project for building an Azure hub-and-spoke network in Central India. Terraform provisions a hub, four isolated spokes, bidirectional hub peering, network security groups, and a Linux jump VM reachable over a restricted public IP. No VPN is used.
+Terraform project for an Azure hub-and-spoke network in Central India. It creates five Ubuntu VMs: one hub jump VM and one private VM in each spoke. The hub VM is the only VM with a public IP; no VPN is used.
 
 ## Architecture
 
@@ -14,15 +14,13 @@ See [architecture.md](./architecture.md) for the network diagram and access boun
 | Production app | `10.3.0.0/16` | `10.3.1.0/24` |
 | Production data | `10.4.0.0/16` | `10.4.1.0/24` |
 
-Only the jump VM has a public IP. SSH is restricted to the administrator's public IPv4 `/32` and uses an SSH public key. Spoke workloads are not created by this configuration.
-
 ## What's included
 
-- `main.tf` — hub, spokes, subnets, NSGs, VNet peerings, public IP, NIC, and jump VM.
-- `variables.tf` — deployment inputs, including validation that SSH source is one IPv4 `/32`.
-- `versions.tf` — Terraform and AzureRM provider requirements.
-- `outputs.tf` — network names and jump VM IP addresses.
-- `terraform.tfvars.example` — safe template; copy it to the ignored local `terraform.tfvars` and replace the sample values.
+- `main.tf` — hub, four spokes, subnets, NSGs, bidirectional hub peering, one public jump VM, and four private spoke VMs.
+- `variables.tf` — network inputs, `azureuser`, sensitive password input, and input validation.
+- `versions.tf` — Terraform and AzureRM provider requirements; managed OS disks are deleted with their VMs.
+- `outputs.tf` — public hub IP and private IPs for each spoke VM.
+- `terraform.tfvars.example` — safe template; copy it to the ignored local `terraform.tfvars` and replace sample values.
 - `.gitignore` — excludes Terraform state, local variables, and generated plans.
 - `.github/workflows/terraform-validation.yml` — formatting and configuration validation on pushes and pull requests.
 
@@ -31,55 +29,68 @@ Only the jump VM has a public IP. SSH is restricted to the administrator's publi
 - Terraform 1.5 or later.
 - Azure CLI and an Azure identity with Contributor access to the target resource group.
 - An existing resource group named `rg-azure-hub-spoke` in Central India, or update the variable to an existing resource group.
-- An SSH key pair. Keep the private key local; Terraform reads only the `.pub` file.
+- An administrator public IPv4 address to restrict inbound SSH to a single `/32`.
 
-Authenticate interactively with Azure CLI (Terraform uses the CLI session):
+Authenticate to Azure and select your subscription:
 
 ```powershell
 az login
 az account set --subscription "YOUR_SUBSCRIPTION_ID"
 ```
 
-Do not put client secrets in `.tf` files, `.tfvars`, or GitHub. If using service-principal authentication instead, use a rotated secret injected through a secure environment/secret manager.
-
 ## Configure and deploy from VS Code
 
 From the repository folder in the VS Code PowerShell terminal:
 
 ```powershell
-ssh-keygen -t ed25519 -f "$HOME\.ssh\hub_spoke_ed25519"
 Copy-Item .\terraform.tfvars.example .\terraform.tfvars
 ```
 
-Edit `terraform.tfvars` and set:
+Edit the ignored `terraform.tfvars` and set your real subscription ID and current public IPv4 address followed by `/32`. The example IP is documentation-only; replace it.
 
-- `subscription_id` to your Azure subscription ID.
-- `admin_source_ip_cidr` to your current public IPv4 address followed by `/32` (for example `203.0.113.10/32` is documentation-only; replace it).
-- `ssh_public_key_path` to the `.pub` key path on your computer.
+Set a new, unique password locally. It must be at least 16 characters and include uppercase and lowercase letters, a number, and a symbol. Do not reuse the password previously shared in chat, and never put a password in GitHub or a checked-in `.tfvars` file:
 
-Then format, initialize, validate, and review the plan:
+```powershell
+$securePassword = Read-Host "Enter a new strong VM password" -AsSecureString
+$env:TF_VAR_admin_password = [System.Net.NetworkCredential]::new("", $securePassword).Password
+```
+
+Terraform marks the variable sensitive, but AzureRM stores VM administrator credentials in Terraform state in plain text. Keep state and plan files private, never commit or share them, and use a secured remote state backend for ongoing use.
+
+Format, initialize, validate, and review the plan before applying:
 
 ```powershell
 terraform fmt -recursive
 terraform init
 terraform validate
 terraform plan -out=tfplan
+terraform show tfplan
 ```
 
-`terraform init` generates `.terraform.lock.hcl`; commit that lock file after initialization so provider versions are reproducible. Review all planned resources and costs before deploying. Apply only after confirming the plan:
+Five `Standard_B1s` VMs are requested by default. Free-trial coverage is not guaranteed for five VMs; check regional availability, quotas, and projected charges in the Azure portal and plan. Apply only after reviewing the plan:
 
 ```powershell
 terraform apply tfplan
+Remove-Item Env:TF_VAR_admin_password
 ```
 
-Connect from the permitted administrator address:
+## Connect to the hub and spokes
+
+From the administrator workstation, connect to the hub's public IP. SSH is permitted only from the configured administrator `/32`; enter the VM password when prompted:
 
 ```powershell
-ssh -i "$HOME\.ssh\hub_spoke_ed25519" "azureadmin@$(terraform output -raw jump_vm_public_ip)"
+$hubIp = terraform output -raw jump_vm_public_ip
+ssh "azureuser@$hubIp"
 ```
 
-If your public IP changes, update the `/32` in `terraform.tfvars` and apply the change.
+The spoke VMs have no public IP. On the hub VM, connect to a spoke using its private IP and the same username/password. Get the IP mapping on your workstation with `terraform output -json spoke_vm_private_ips`, then run on the hub:
+
+```bash
+ssh azureuser@<spoke-private-ip>
+```
+
+The spoke NSGs permit SSH only from the hub management subnet. If your public IP changes, update the `/32` in `terraform.tfvars` and apply the change.
 
 ## Costs and cleanup
 
-The Standard public IP and running VM can incur charges; VM size availability and quotas vary by region and subscription. When finished with this lab, review the plan and run `terraform destroy` to remove resources managed by this configuration. Terraform state is local and is intentionally excluded from Git; back it up securely if the deployment must be managed from another machine.
+Running five VMs, their managed OS disks, and the Standard public IP can incur charges; do not assume the Azure free trial covers every VM. The provider is configured to delete managed OS disks when their VMs are deleted. When finished with this lab, review the plan and run `terraform destroy`. The existing resource group itself is not managed by this configuration.

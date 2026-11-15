@@ -26,18 +26,34 @@ variable "admin_source_ip_cidr" {
 }
 
 variable "ssh_public_key_path" {
-  description = "Local path to the SSH public key file"
+  description = "Temporary legacy input; no longer used for authentication"
   type        = string
+  default     = ""
 }
 
 variable "admin_username" {
   description = "Linux VM administrator username"
   type        = string
-  default     = "azureadmin"
+  default     = "azureuser"
+}
+
+variable "admin_password" {
+  description = "New strong Linux VM password supplied locally via TF_VAR_admin_password; Terraform state contains this value in plain text."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition = length(var.admin_password) >= 16 &&
+      can(regex("[A-Z]", var.admin_password)) &&
+      can(regex("[a-z]", var.admin_password)) &&
+      can(regex("[0-9]", var.admin_password)) &&
+      can(regex("[^A-Za-z0-9]", var.admin_password))
+    error_message = "Use a unique password with at least 16 characters, including uppercase and lowercase letters, a number, and a symbol."
+  }
 }
 
 variable "vm_size" {
-  description = "Jump VM size"
+  description = "Size for the hub and all four spoke VMs; check Central India availability and subscription charges."
   type        = string
   default     = "Standard_B1s"
 }

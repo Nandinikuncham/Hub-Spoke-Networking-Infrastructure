@@ -191,16 +191,56 @@ resource "azurerm_linux_virtual_machine" "jump" {
   location                        = var.location
   size                            = var.vm_size
   admin_username                  = var.admin_username
-  disable_password_authentication = true
+  admin_password                  = var.admin_password
+  disable_password_authentication = false
   network_interface_ids           = [azurerm_network_interface.jump.id]
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = file(var.ssh_public_key_path)
-  }
 
   os_disk {
     name                 = "osdisk-jump-vm"
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    disk_size_gb         = 30
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+}
+
+resource "azurerm_network_interface" "spoke" {
+  for_each = local.spokes
+
+  name                = "nic-${replace(each.key, "_", "-")}-vm"
+  location            = var.location
+  resource_group_name = data.azurerm_resource_group.deployment.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.spoke[each.key].id
+    private_ip_address_allocation = "Dynamic"
+  }
+
+  depends_on = [azurerm_subnet_network_security_group_association.spoke]
+}
+
+resource "azurerm_linux_virtual_machine" "spoke" {
+  for_each = local.spokes
+
+  name                            = "vm-${replace(each.key, "_", "-")}-centralindia"
+  computer_name                   = "${replace(each.key, "_", "-")}-vm"
+  resource_group_name             = data.azurerm_resource_group.deployment.name
+  location                        = var.location
+  size                            = var.vm_size
+  admin_username                  = var.admin_username
+  admin_password                  = var.admin_password
+  disable_password_authentication = false
+  network_interface_ids           = [azurerm_network_interface.spoke[each.key].id]
+
+  os_disk {
+    name                 = "osdisk-${replace(each.key, "_", "-")}"
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
     disk_size_gb         = 30

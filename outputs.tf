@@ -7,12 +7,20 @@ output "hub_vnet_name" {
 }
 
 output "jump_vm_public_ip" {
-  description = "Public IP for SSH access to the jump VM"
+  description = "Public IP for password-based SSH access to the hub jump VM"
   value       = azurerm_public_ip.jump.ip_address
 }
 
 output "jump_vm_private_ip" {
-  value = azurerm_network_interface.jump.private_ip_address
+  description = "Private IP of the hub jump VM"
+  value       = azurerm_network_interface.jump.private_ip_address
+}
+
+output "spoke_vm_private_ips" {
+  description = "Private IPs of the spoke VMs; connect to these from the hub jump VM"
+  value = {
+    for key, nic in azurerm_network_interface.spoke : key => nic.private_ip_address
+  }
 }
 
 output "spoke_vnet_names" {

@@ -34,7 +34,7 @@ locals {
 resource "azurerm_virtual_network" "hub" {
   name                = "vnet-hub-centralindia"
   address_space       = ["10.0.0.0/16"]
-  location            = data.azurerm_resource_group.deployment.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.deployment.name
 }
 
@@ -50,7 +50,7 @@ resource "azurerm_virtual_network" "spoke" {
 
   name                = each.value.name
   address_space       = [each.value.address]
-  location            = data.azurerm_resource_group.deployment.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.deployment.name
 }
 
@@ -65,7 +65,7 @@ resource "azurerm_subnet" "spoke" {
 
 resource "azurerm_network_security_group" "hub" {
   name                = "nsg-hub-management"
-  location            = data.azurerm_resource_group.deployment.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.deployment.name
 
   security_rule {
@@ -102,7 +102,7 @@ resource "azurerm_network_security_group" "spoke" {
   for_each = local.spokes
 
   name                = "nsg-${each.key}"
-  location            = data.azurerm_resource_group.deployment.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.deployment.name
 
   security_rule {
@@ -163,7 +163,7 @@ resource "azurerm_virtual_network_peering" "spoke_to_hub" {
 
 resource "azurerm_public_ip" "jump" {
   name                = "pip-jump-vm"
-  location            = data.azurerm_resource_group.deployment.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.deployment.name
   allocation_method   = "Static"
   sku                 = "Standard"
@@ -171,7 +171,7 @@ resource "azurerm_public_ip" "jump" {
 
 resource "azurerm_network_interface" "jump" {
   name                = "nic-jump-vm"
-  location            = data.azurerm_resource_group.deployment.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.deployment.name
 
   ip_configuration {
@@ -180,13 +180,15 @@ resource "azurerm_network_interface" "jump" {
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.jump.id
   }
+
+  depends_on = [azurerm_subnet_network_security_group_association.hub]
 }
 
 resource "azurerm_linux_virtual_machine" "jump" {
   name                            = "vm-jump-centralindia"
   computer_name                   = "jumpvm"
   resource_group_name             = data.azurerm_resource_group.deployment.name
-  location                        = data.azurerm_resource_group.deployment.location
+  location                        = var.location
   size                            = var.vm_size
   admin_username                  = var.admin_username
   disable_password_authentication = true

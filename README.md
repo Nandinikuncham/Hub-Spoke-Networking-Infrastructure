@@ -24,6 +24,7 @@ Only the jump VM has a public IP. SSH is restricted to the administrator's publi
 - `outputs.tf` — network names and jump VM IP addresses.
 - `terraform.tfvars.example` — safe template; copy it to the ignored local `terraform.tfvars` and replace the sample values.
 - `.gitignore` — excludes Terraform state, local variables, and generated plans.
+- `.github/workflows/terraform-validation.yml` — formatting and configuration validation on pushes and pull requests.
 
 ## Prerequisites
 
@@ -71,14 +72,13 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-Get the jump VM IP and connect from the permitted administrator address:
+Connect from the permitted administrator address:
 
 ```powershell
-terraform output -raw jump_vm_public_ip
-ssh -i "$HOME\.ssh\hub_spoke_ed25519" azureadmin@<JUMP_VM_PUBLIC_IP>
+ssh -i "$HOME\.ssh\hub_spoke_ed25519" "azureadmin@$(terraform output -raw jump_vm_public_ip)"
 ```
 
-Replace `<JUMP_VM_PUBLIC_IP>` with the Terraform output. If your public IP changes, update the `/32` in `terraform.tfvars` and apply the change.
+If your public IP changes, update the `/32` in `terraform.tfvars` and apply the change.
 
 ## Costs and cleanup
 

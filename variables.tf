@@ -25,12 +25,6 @@ variable "admin_source_ip_cidr" {
   }
 }
 
-variable "ssh_public_key_path" {
-  description = "Temporary legacy input; no longer used for authentication"
-  type        = string
-  default     = ""
-}
-
 variable "admin_username" {
   description = "Linux VM administrator username"
   type        = string

@@ -1,6 +1,6 @@
 # Hub-Spoke-Networking-Infrastructure
 
-Terraform project for an Azure hub-and-spoke network in Central India. It creates five Ubuntu VMs: one hub jump VM and one private VM in each spoke. The hub VM is the only VM with a public IP; no VPN is used. This repository change adds code and documentation only; no Azure resources have been deployed.
+Terraform project for an Azure hub-and-spoke network in Central India. It creates five Ubuntu VMs: one hub jump VM and one private VM in each spoke. The hub VM is the only VM with a public IP; hub-to-spoke communication uses VNet peering.
 
 ## Architecture
 
@@ -36,7 +36,7 @@ Authenticate to Azure and select your subscription:
 
 ```powershell
 az login
-az account set --subscription "YOUR_SUBSCRIPTION_ID"
+az account set --subscription "102b28e5-3d71-4cfa-ab2e-49ea41e3d0ae"
 ```
 
 ## Configure and deploy from VS Code
@@ -47,7 +47,7 @@ From the repository folder in the VS Code PowerShell terminal:
 Copy-Item .\terraform.tfvars.example .\terraform.tfvars
 ```
 
-Edit the ignored `terraform.tfvars` and set your real subscription ID and current public IPv4 address followed by `/32`. The example IP is documentation-only; replace it.
+Edit the ignored `terraform.tfvars` and verify the provided subscription ID. Set your current public IPv4 address followed by `/32`; replace the documentation-only example IP.
 
 Set a new, unique password locally. It must be at least 16 characters and include uppercase and lowercase letters, a number, and a symbol. Do not reuse the password previously shared in chat, and never put a password in GitHub or a checked-in `.tfvars` file:
 

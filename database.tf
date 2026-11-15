@@ -28,7 +28,7 @@ resource "azapi_resource" "sql_database" {
       minCapacity                      = 0.5
       maxSizeBytes                     = 34359738368
       requestedBackupStorageRedundancy = "Local"
-      isFreeLimitEnabled               = true
+      useFreeLimit                     = true
       freeLimitExhaustionBehavior      = "AutoPause"
     }
   }

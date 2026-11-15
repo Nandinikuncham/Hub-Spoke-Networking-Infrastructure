@@ -92,8 +92,8 @@ resource "azurerm_application_insights_workbook" "vm_health" {
         type = 3
         name = "vm-performance-chart"
         content = {
-          version = "KqlItem/1.0"
-          query = <<-KQL
+          version       = "KqlItem/1.0"
+          query         = <<-KQL
             Perf
             | where TimeGenerated > ago(1h)
             | where CounterName in ("% Processor Time", "% Used Memory", "% Used Space")
@@ -111,8 +111,8 @@ resource "azurerm_application_insights_workbook" "vm_health" {
         type = 3
         name = "latest-vm-performance"
         content = {
-          version = "KqlItem/1.0"
-          query = <<-KQL
+          version       = "KqlItem/1.0"
+          query         = <<-KQL
             Perf
             | where TimeGenerated > ago(15m)
             | where CounterName in ("% Processor Time", "% Used Memory", "% Used Space")
@@ -128,7 +128,7 @@ resource "azurerm_application_insights_workbook" "vm_health" {
         }
       }
     ]
-    isLocked = false
+    isLocked            = false
     fallbackResourceIds = [lower(azurerm_log_analytics_workspace.vm_monitoring.id)]
   })
 }

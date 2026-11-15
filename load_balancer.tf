@@ -3,7 +3,7 @@ resource "azurerm_lb" "spoke_ssh" {
 
   name                = "lb-${replace(each.key, "_", "-")}-ssh"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.deployment.name
+  resource_group_name = azurerm_resource_group.spoke[each.key].name
   sku                 = "Standard"
 
   frontend_ip_configuration {

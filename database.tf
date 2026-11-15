@@ -15,14 +15,14 @@ resource "azapi_resource" "sql_database" {
   parent_id = azurerm_mssql_server.sql.id
   location  = var.location
 
-  sku = {
-    name     = "GP_S_Gen5"
-    tier     = "GeneralPurpose"
-    family   = "Gen5"
-    capacity = 2
-  }
-
   body = {
+    sku = {
+      name     = "GP_S_Gen5"
+      tier     = "GeneralPurpose"
+      family   = "Gen5"
+      capacity = 2
+    }
+
     properties = {
       autoPauseDelay                   = 60
       minCapacity                      = 0.5

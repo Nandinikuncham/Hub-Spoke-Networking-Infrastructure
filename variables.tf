@@ -4,7 +4,7 @@ variable "subscription_id" {
 }
 
 variable "location" {
-  description = "Azure region"
+  description = "Azure region for the network resources"
   type        = string
   default     = "centralindia"
 }
@@ -20,7 +20,7 @@ variable "admin_source_ip_cidr" {
   type        = string
 
   validation {
-    condition     = can(cidrhost(var.admin_source_ip_cidr, 0)) && endswith(var.admin_source_ip_cidr, "/32")
+    condition     = can(regex("^([0-9]{1,3}[.]){3}[0-9]{1,3}/32$", var.admin_source_ip_cidr)) && can(cidrhost(var.admin_source_ip_cidr, 0))
     error_message = "Provide a valid administrator IPv4 address with a /32 prefix."
   }
 }

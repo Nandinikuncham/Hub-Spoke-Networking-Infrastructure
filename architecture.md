@@ -5,61 +5,18 @@ This project provisions five Ubuntu VMs in Central India: one public-facing jump
 ## Network topology
 
 ```mermaid
-flowchart TB
-    admin["Administrator workstation<br/>Public IPv4 /32"]
-    publicip["Static Standard Public IP"]
-
-    subgraph rg["Resource group: rg-azure-hub-spoke · Central India"]
-        subgraph hub["Hub VNet · 10.0.0.0/16"]
-            hubvnet["Hub network"]
-            subgraph management["Management subnet · 10.0.1.0/24"]
-                jump["Ubuntu jump VM · azureuser<br/>Password-based SSH · public IP"]
-                hubnsg["Hub NSG<br/>Allow TCP/22 from admin /32"]
-                hubdisk["Managed OS disk<br/>Deleted with VM"]
-            end
-        end
-        subgraph development["Development spoke · 10.1.0.0/16"]
-            devvnet["VNet"]
-            devsubnet["snet-development · 10.1.1.0/24"]
-            devvm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
-            devdisk["Managed OS disk<br/>Deleted with VM"]
-        end
-        subgraph testing["Testing spoke · 10.2.0.0/16"]
-            testvnet["VNet"]
-            testsubnet["snet-testing · 10.2.1.0/24"]
-            testvm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
-            testdisk["Managed OS disk<br/>Deleted with VM"]
-        end
-        subgraph production_app["Production app spoke · 10.3.0.0/16"]
-            appvnet["VNet"]
-            appsubnet["snet-prod-app · 10.3.1.0/24"]
-            appvm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
-            appdisk["Managed OS disk<br/>Deleted with VM"]
-        end
-        subgraph production_data["Production data spoke · 10.4.0.0/16"]
-            datavnet["VNet"]
-            datasubnet["snet-prod-data · 10.4.1.0/24"]
-            datavm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
-            datadisk["Managed OS disk<br/>Deleted with VM"]
-        end
-    end
-
-    admin -->|"SSH TCP/22 · admin /32"| publicip
-    publicip -->|"NIC association"| jump
-    hubnsg -.-> jump
-    jump --- hubdisk
-    hubvnet <-->|"VNet peering"| devvnet
-    hubvnet <-->|"VNet peering"| testvnet
-    hubvnet <-->|"VNet peering"| appvnet
-    hubvnet <-->|"VNet peering"| datavnet
-    jump -->|"SSH to private IP"| devvm
-    jump -->|"SSH to private IP"| testvm
-    jump -->|"SSH to private IP"| appvm
-    jump -->|"SSH to private IP"| datavm
-    devvm --- devdisk
-    testvm --- testdisk
-    appvm --- appdisk
-    datavm --- datadisk
+flowchart LR
+    Admin["Admin workstation - public IPv4 /32"] -->|SSH 22| PublicIP["Static Standard public IP"]
+    PublicIP --> Jump["Hub management subnet 10.0.1.0/24 - Ubuntu VM - azureuser - password SSH - OS disk deleted with VM"]
+    Jump -->|SSH to private IP| DevVM["Development subnet 10.1.1.0/24 - private Ubuntu VM - OS disk deleted with VM"]
+    Jump -->|SSH to private IP| TestVM["Testing subnet 10.2.1.0/24 - private Ubuntu VM - OS disk deleted with VM"]
+    Jump -->|SSH to private IP| AppVM["Production app subnet 10.3.1.0/24 - private Ubuntu VM - OS disk deleted with VM"]
+    Jump -->|SSH to private IP| DataVM["Production data subnet 10.4.1.0/24 - private Ubuntu VM - OS disk deleted with VM"]
+    Hub["Hub VNet 10.0.0.0/16"] --- Jump
+    Hub --- Dev["Development VNet 10.1.0.0/16"]
+    Hub --- Test["Testing VNet 10.2.0.0/16"]
+    Hub --- App["Production app VNet 10.3.0.0/16"]
+    Hub --- Data["Production data VNet 10.4.0.0/16"]
 ```
 
 ## Network address plan

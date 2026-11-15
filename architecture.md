@@ -1,13 +1,13 @@
 # Azure Hub-and-Spoke Landing Zone Architecture
 
-This case-study design provisions a Central India hub and three workload spokes, a shared Identity Resource Group for secrets and monitoring, and a dedicated Database Resource Group for private Azure SQL Database. Each spoke contains one private Ubuntu VM.
+This case-study design provisions a Central India hub and three workload spokes, a shared Monitoring and Backup Resource Group for Key Vault, monitoring, and backup services, and a dedicated Database Resource Group for private Azure SQL Database. Each spoke contains one private Ubuntu VM.
 
 ## Traffic flow
 
 1. An administrator connects over HTTPS to the Azure Bastion public IP in the Connectivity Resource Group's hub.
 2. Bastion connects directly to each spoke VM's private IP over hub-to-spoke VNet peering. This is the configured administrative path; it does not pass through the spoke load balancers.
 3. Each spoke VM reaches the shared Azure SQL Database over TCP 1433 through its own SQL private endpoint and private DNS zone. SQL public network access is disabled.
-4. Azure Monitor sends VM performance counters and SQL Basic metrics to the Log Analytics workspace in the Identity Resource Group. The Hub-Spoke VM Health workbook displays both.
+4. Azure Monitor sends VM performance counters and SQL Basic metrics to the Log Analytics workspace in the Monitoring and Backup Resource Group. The Hub-Spoke VM Health workbook displays both.
 
 ## Network topology
 
@@ -61,7 +61,7 @@ flowchart LR
         AppSQLPE["Production App SQL private endpoint"]
     end
 
-    subgraph IdentityRG["Identity Resource Group"]
+    subgraph MonitoringRG["Monitoring and Backup Resource Group"]
         KV["Key Vault - RBAC enabled"]
         KVDNS["Key Vault private DNS zone"]
         LA["Log Analytics workspace"]
@@ -131,9 +131,11 @@ There is no Production Data VM or `10.4.0.0/16` spoke. Azure SQL Database is the
 ## Resource group boundaries
 
 - **Connectivity:** hub VNet, Azure Firewall, Azure Bastion, VPN Gateway and their public IPs, plus the hub subnet and private endpoint for Key Vault.
-- **Identity:** Key Vault and its private DNS zone and VNet links, Log Analytics workspace, Azure Monitor data collection rule and workbook, Recovery Services vault and VM backup policy, and optionally Network Watcher.
+- **Monitoring and Backup Resource Group (Terraform Identity Resource Group):** Key Vault and its private DNS zone and VNet links, Log Analytics workspace, Azure Monitor data collection rule and workbook, Recovery Services vault and VM backup policy, and optionally Network Watcher.
 - **Development Resource Group Spoke, Testing Resource Group Spoke, Production App Resource Group Spoke:** each workload VNet, VM subnet, NSG, Ubuntu VM, internal SSH load balancer, SQL private endpoint subnet, and its own SQL private DNS zone.
 - **Database:** Azure SQL logical server/database and three SQL private endpoint resources. Each endpoint connects to one spoke subnet; SQL endpoints are not placed in the hub.
+
+The Monitoring and Backup Resource Group label in this diagram refers to the Terraform Identity Resource Group; the Terraform resource-group variable and Azure resource names are unchanged.
 
 ## Access, routing, and operations
 

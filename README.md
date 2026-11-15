@@ -1,6 +1,6 @@
 # Hub-Spoke-Networking-Infrastructure
 
-Terraform project for an Azure hub-and-spoke network in Central India. It creates five Ubuntu VMs: one hub jump VM and one private VM in each spoke. The hub VM is the only VM with a public IP; no VPN is used.
+Terraform project for an Azure hub-and-spoke network in Central India. It creates five Ubuntu VMs: one hub jump VM and one private VM in each spoke. The hub VM is the only VM with a public IP; no VPN is used. This repository change adds code and documentation only; no Azure resources have been deployed.
 
 ## Architecture
 
@@ -17,9 +17,10 @@ See [architecture.md](./architecture.md) for the network diagram and access boun
 ## What's included
 
 - `main.tf` — hub, four spokes, subnets, NSGs, bidirectional hub peering, one public jump VM, and four private spoke VMs.
+- `monitoring.tf` — Azure Monitor Linux Agent, performance data collection rule, Log Analytics workspace, and VM health workbook.
 - `variables.tf` — network inputs, `azureuser`, sensitive password input, and input validation.
 - `versions.tf` — Terraform and AzureRM provider requirements; managed OS disks are deleted with their VMs.
-- `outputs.tf` — public hub IP and private IPs for each spoke VM.
+- `outputs.tf` — hub and spoke IPs plus monitoring workspace and workbook identifiers.
 - `terraform.tfvars.example` — safe template; copy it to the ignored local `terraform.tfvars` and replace sample values.
 - `.gitignore` — excludes Terraform state, local variables, and generated plans.
 - `.github/workflows/terraform-validation.yml` — formatting and configuration validation on pushes and pull requests.
@@ -91,6 +92,19 @@ ssh azureuser@<spoke-private-ip>
 
 The spoke NSGs permit SSH only from the hub management subnet. If your public IP changes, update the `/32` in `terraform.tfvars` and apply the change.
 
+## VM monitoring dashboard
+
+The Azure Monitor Linux Agent is configured on the hub and four spoke VMs. A data collection rule sends CPU, memory, and disk performance counters to the Log Analytics workspace every 60 seconds. The `Hub-Spoke VM Health` workbook includes a last-hour trend chart and a table of recent measurements. It does not include application or network metrics or alert rules.
+
+After deployment and agent startup, open **Azure portal > Monitor > Workbooks** and select **Hub-Spoke VM Health**. Initial data may take several minutes to appear. The outputs `monitoring_workspace_name` and `monitoring_workbook_id` identify the monitoring resources:
+
+```powershell
+terraform output monitoring_workspace_name
+terraform output monitoring_workbook_id
+```
+
+Log Analytics ingestion and retention can incur charges. Review workspace usage and current Azure pricing; free-trial eligibility does not guarantee that monitoring or all five VMs are free.
+
 ## Costs and cleanup
 
-Running five VMs, their managed OS disks, and the Standard public IP can incur charges; do not assume the Azure free trial covers every VM. The provider is configured to delete managed OS disks when their VMs are deleted. When finished with this lab, review the plan and run `terraform destroy`. The existing resource group itself is not managed by this configuration.
+Running five VMs, their managed OS disks, the Standard public IP, and Log Analytics ingestion/retention can incur charges; do not assume the Azure free trial covers every resource. The provider is configured to delete managed OS disks when their VMs are deleted. When finished with this lab, review the plan and run `terraform destroy`. The existing resource group itself is not managed by this configuration.

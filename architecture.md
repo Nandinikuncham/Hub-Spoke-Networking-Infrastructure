@@ -12,11 +12,11 @@ flowchart LR
     Jump -->|SSH to private IP| TestVM["Testing subnet 10.2.1.0/24 - private Ubuntu VM - OS disk deleted with VM"]
     Jump -->|SSH to private IP| AppVM["Production app subnet 10.3.1.0/24 - private Ubuntu VM - OS disk deleted with VM"]
     Jump -->|SSH to private IP| DataVM["Production data subnet 10.4.1.0/24 - private Ubuntu VM - OS disk deleted with VM"]
-    Hub["Hub VNet 10.0.0.0/16"] --- Jump
-    Hub --- Dev["Development VNet 10.1.0.0/16"]
-    Hub --- Test["Testing VNet 10.2.0.0/16"]
-    Hub --- App["Production app VNet 10.3.0.0/16"]
-    Hub --- Data["Production data VNet 10.4.0.0/16"]
+    Hub["Hub VNet 10.0.0.0/16"] ---|VNet peering| Jump
+    Hub ---|VNet peering| Dev["Development VNet 10.1.0.0/16"]
+    Hub ---|VNet peering| Test["Testing VNet 10.2.0.0/16"]
+    Hub ---|VNet peering| App["Production app VNet 10.3.0.0/16"]
+    Hub ---|VNet peering| Data["Production data VNet 10.4.0.0/16"]
 ```
 
 ## Network address plan

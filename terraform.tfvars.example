@@ -1,7 +1,16 @@
-subscription_id      = "102b28e5-3d71-4cfa-ab2e-49ea41e3d0ae"
-resource_group_name  = "rg-azure-hub-spoke"
-admin_source_ip_cidr = "203.0.113.10/32" # Replace with your current public IPv4 address /32
-admin_username       = "azureuser"
-vm_size              = "Standard_B1s"
+subscription_id                  = "102b28e5-3d71-4cfa-ab2e-49ea41e3d0ae"
+location                         = "centralindia"
+connectivity_resource_group_name = "rg-hub-spoke-connectivity"
+identity_resource_group_name     = "rg-hub-spoke-identity"
+shared_data_resource_group_name  = "rg-hub-spoke-shared-data"
+key_vault_name                   = "kv-hs-change-this"
+sql_server_name                  = "sql-hs-change-this"
+sql_database_name                = "hubspoke-free-db"
+admin_username                   = "azureuser"
+sql_admin_username               = "sqladmin"
+vm_size                          = "Standard_B1s"
+create_network_watcher           = false
 
-# Do not store admin_password here. Set TF_VAR_admin_password locally as described in README.md.
+# Replace key_vault_name and sql_server_name with globally unique names.
+# Do not store admin_password or sql_admin_password here.
+# Set TF_VAR_admin_password and TF_VAR_sql_admin_password locally as described in README.md.

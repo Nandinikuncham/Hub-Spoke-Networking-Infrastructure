@@ -1,14 +1,13 @@
 locals {
-  monitoring_vm_ids = merge(
-    { jump = azurerm_linux_virtual_machine.jump.id },
-    { for name, vm in azurerm_linux_virtual_machine.spoke : name => vm.id }
-  )
+  monitoring_vm_ids = {
+    for name, vm in azurerm_linux_virtual_machine.spoke : name => vm.id
+  }
 }
 
 resource "azurerm_log_analytics_workspace" "vm_monitoring" {
   name                = "law-hub-spoke-vm-monitoring"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.deployment.name
+  resource_group_name = azurerm_resource_group.identity.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
 }
@@ -16,9 +15,9 @@ resource "azurerm_log_analytics_workspace" "vm_monitoring" {
 resource "azurerm_monitor_data_collection_rule" "linux_performance" {
   name                = "dcr-hub-spoke-linux-performance"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.deployment.name
+  resource_group_name = azurerm_resource_group.identity.name
   kind                = "Linux"
-  description         = "Collect CPU, memory, and disk usage from the hub and spoke Linux VMs."
+  description         = "Collect CPU, memory, and disk usage from the three spoke Linux VMs."
 
   destinations {
     log_analytics {
@@ -71,12 +70,12 @@ resource "azurerm_monitor_data_collection_rule_association" "linux_vms" {
 
 resource "azurerm_application_insights_workbook" "vm_health" {
   name                = "a673b551-40f3-4f90-bd7f-7a8a73c118d9"
-  resource_group_name = data.azurerm_resource_group.deployment.name
+  resource_group_name = azurerm_resource_group.identity.name
   location            = var.location
   display_name        = "Hub-Spoke VM Health"
   category            = "workbook"
   source_id           = lower(azurerm_log_analytics_workspace.vm_monitoring.id)
-  description         = "CPU, memory, and disk usage for the hub and spoke Linux VMs."
+  description         = "CPU, memory, and disk usage for the three spoke Linux VMs."
 
   data_json = jsonencode({
     version = "Notebook/1.0"
@@ -85,7 +84,7 @@ resource "azurerm_application_insights_workbook" "vm_health" {
         type = 1
         name = "monitoring-overview"
         content = {
-          json = "# Hub-Spoke VM Health\nThis workbook displays CPU, memory, and disk usage for the five Linux VMs. Data is collected every 60 seconds by Azure Monitor Agent and stored in the Log Analytics workspace."
+          json = "# Hub-Spoke VM Health\nThis workbook displays CPU, memory, and disk usage for the three spoke Linux VMs. Data is collected every 60 seconds by Azure Monitor Agent and stored in the shared Log Analytics workspace."
         }
       },
       {

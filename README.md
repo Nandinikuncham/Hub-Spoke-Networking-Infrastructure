@@ -1,6 +1,6 @@
 # Azure Hub-Spoke Networking Case Study
 
-Terraform configuration for a hub-and-spoke landing-zone example in Central India. The design has three workload spokes, shared identity/monitoring services, and a shared Azure SQL database reached through a private endpoint. It is intended for a networking case study; review the plan and all Azure costs before deploying.
+Terraform configuration for a Central India hub-and-spoke landing zone with three workload spokes, shared identity and monitoring services, and a private Azure SQL Database. This is a case-study project; no Azure resources have been deployed from this change. Review the plan, quotas, and current Azure costs before deploying.
 
 ## Architecture
 
@@ -13,32 +13,32 @@ See [architecture.md](./architecture.md) for the network diagram and traffic bou
 | Testing | `10.2.0.0/16` | `10.2.1.0/24` |
 | Production app | `10.3.0.0/16` | `10.3.1.0/24` |
 
-The former Production Data VM/VNet and its load balancer are removed. A shared Azure SQL database replaces that workload.
+The former Production Data VM/VNet and its load balancer are replaced by Azure SQL Database in a dedicated Database Resource Group. There are three spoke VMs, with no Hub VM.
 
-## Resource groups and components
+## Resource groups and services
 
-- **Connectivity RG:** hub VNet and dedicated subnets, Azure Firewall, Azure Bastion, VPN Gateway, private endpoint, and public IPs required by those services.
-- **Identity RG:** RBAC-enabled Key Vault, Recovery Services vault, Log Analytics workspace, Azure Monitor data collection rule, and VM health workbook. Network Watcher creation is optional and disabled by default to avoid a duplicate regional resource.
-- **Workload RGs:** one each for Development, Testing, and Production App. Each contains its spoke VNet/subnet, NSG, Ubuntu VM, and Standard internal SSH load balancer.
-- **Shared Data RG:** Azure SQL logical server/database and the private DNS zone for SQL.
-- **Shared database:** Azure SQL Database serverless free-tier settings are requested through the AzAPI provider, with the free limit enabled and exhaustion behavior set to AutoPause. Public SQL network access is disabled. A private endpoint is in the hub and private DNS is linked to the hub and all three spokes.
+- **Connectivity Resource Group:** hub VNet, Firewall, Bastion, VPN Gateway and their public IPs, plus private endpoints for SQL and Key Vault.
+- **Identity Resource Group:** Key Vault, Key Vault private DNS zone, Log Analytics workspace, Azure Monitor data collection rule and workbook, Recovery Services vault and VM backup policy. Network Watcher creation is optional and disabled by default.
+- **Development, Testing, Production App Resource Groups:** each workload VNet/subnet, NSG, private Ubuntu VM, and Standard internal SSH load balancer.
+- **Database Resource Group:** Azure SQL logical server/database and SQL private DNS zone.
 
-The Azure SQL administrator is configured for server administration only. This code does not grant application/database users or permissions. Set up the database identity and least-privilege grants separately before connecting an application.
+The Key Vault private endpoint is in the hub. Its private DNS zone is linked to the hub and all three spokes, so each workload can resolve the private vault address. SQL has a separate private endpoint and private DNS zone linked to the same VNets. VNet peering supplies network reachability; it does not grant data-plane permissions.
+
+The Recovery Services vault protects the three spoke VMs with daily backups retained for 30 days. Azure SQL uses Azure-managed standard backups only; SQL is not protected by the Recovery Services vault and no long-term retention policy is configured.
 
 ## Access and traffic boundaries
 
-- Use Azure Bastion to connect to spoke VM private IPs. The VMs have no public IPs. SSH password authentication is enabled for the `azureuser` account; NSGs allow SSH from the Bastion subnet and Azure load-balancer probes.
-- The three internal load balancers expose private TCP port 22, each with one VM backend. They are optional private SSH front ends, not a path through Bastion and not a high-availability pool.
-- The hub and each spoke have bidirectional VNet peering. Peering is direct: there are no UDRs or forced routes through the Firewall, and this configuration does not filter spoke traffic with the Firewall. Firewall rules are not configured.
-- A VPN Gateway resource is created in the hub. No VPN connection, tunnel, or client configuration is included.
-- The database is reachable only over its private endpoint. VNet peering and private DNS provide network reachability; they do not grant SQL login or database permissions.
-- The Recovery Services vault is created as shared infrastructure; no VM backup policy or protected item is configured.
+- Spoke VMs have private IPs only. Use Azure Bastion to connect to their private IPs. SSH password authentication is enabled for the `azureuser` account; NSGs allow SSH from the Bastion subnet and Azure load-balancer probes.
+- Each spoke has an internal TCP 22 load balancer with one VM backend. These are private SSH front ends, not a high-availability pool.
+- The hub and each spoke have bidirectional VNet peering. Peering is direct: there are no UDRs or forced routes through the Firewall, and the Firewall does not filter direct spoke traffic. Firewall rules are not configured.
+- A VPN Gateway resource is provisioned in the hub; a VPN connection requires its own configuration.
+- The SQL logical server has public network access disabled. The private endpoint and private DNS provide network reachability; application/database users and least-privilege permissions must be configured separately.
 
 ## Credentials and Terraform state
 
-The VM username defaults to `azureuser`. Set new, unique VM and SQL administrator passwords locally; never place them in `terraform.tfvars`, Git, or chat. Do not reuse credentials that have been exposed previously.
+The VM username defaults to `azureuser`. Set new, unique VM and SQL administrator passwords locally; never place them in `terraform.tfvars`, Git, or chat. Do not reuse credentials that were exposed previously.
 
-In PowerShell, set the passwords for the current terminal session:
+In PowerShell, set passwords for the current terminal session:
 
 ```powershell
 $secureVmPassword = Read-Host "Enter a new strong VM password" -AsSecureString
@@ -47,13 +47,13 @@ $secureSqlPassword = Read-Host "Enter a new strong SQL administrator password" -
 $env:TF_VAR_sql_admin_password = [System.Net.NetworkCredential]::new("", $secureSqlPassword).Password
 ```
 
-Terraform marks both values sensitive in CLI output, but Terraform state can still store them in plain text. Keep state and plans private; use a secured remote state backend for ongoing work. This configuration creates an empty Key Vault with RBAC enabled but does not copy either password into it.
+Terraform marks both values sensitive in CLI output, but Terraform state can still store them in plain text. Keep state and plans private; use a secured remote state backend for ongoing work. The Key Vault is RBAC-enabled, but this configuration does not store either password in it.
 
 ## Prerequisites
 
 - Terraform 1.5 or later, Azure CLI, and VS Code.
-- Azure permissions at subscription scope to create resource groups and the resources in this project. The configuration creates Connectivity, Identity, Shared Data, and three workload resource groups.
-- Check Central India service availability, subscription quota, and current pricing. Azure Firewall, Bastion, VPN Gateway, public IPs, load balancers, private endpoints, Log Analytics ingestion/retention, storage, and SQL usage can incur charges. The Azure SQL free-tier limits do not make the rest of the architecture free.
+- Azure permissions at subscription scope to create resource groups and the configured resources.
+- Check Central India service availability, subscription quota, and current pricing. Firewall, Bastion, VPN Gateway, public IPs, load balancers, private endpoints, VM backups, Log Analytics ingestion/retention, storage, and SQL usage can incur charges. The Azure SQL free-tier limits do not make the rest of the architecture free.
 
 Sign in with your Azure CLI identity and select the target subscription:
 
@@ -72,7 +72,7 @@ From the repository folder in the VS Code PowerShell terminal:
 Copy-Item .\terraform.tfvars.example .\terraform.tfvars
 ```
 
-Edit the ignored local `terraform.tfvars`. Keep the subscription ID correct, and replace the example Key Vault and SQL server names with globally unique names. Passwords are supplied only through the environment variables above.
+Edit the ignored local `terraform.tfvars`. Keep the subscription ID correct, and replace the example Key Vault and SQL server names with globally unique names. Supply passwords only through the environment variables above.
 
 Format, initialize, validate, and review the plan:
 
@@ -92,13 +92,15 @@ Remove-Item Env:TF_VAR_admin_password
 Remove-Item Env:TF_VAR_sql_admin_password
 ```
 
-After deployment, open **Azure portal > Bastion** on the hub Bastion host and connect to a spoke VM by private IP. The outputs `spoke_vm_private_ips`, `spoke_lb_private_ips`, `sql_server_fqdn`, `sql_database_name`, `monitoring_workspace_name`, and `monitoring_workbook_id` provide the corresponding resource details.
+After deployment, use **Azure portal > Bastion** on the hub Bastion host to connect to a spoke VM by private IP. Outputs include `spoke_vm_private_ips`, `spoke_lb_private_ips`, `sql_server_fqdn`, `sql_database_name`, `monitoring_workspace_name`, and `monitoring_workbook_id`.
 
-## Monitoring and Network Watcher
+## Monitoring, backups, and Network Watcher
 
-Azure Monitor Linux Agent and a data collection rule collect CPU, memory, and disk counters for the three VMs every 60 seconds. After the agents start sending data, open **Azure portal > Monitor > Workbooks > Hub-Spoke VM Health**. Initial measurements may take several minutes; Log Analytics usage can incur charges.
+Azure Monitor Linux Agent and a data collection rule collect CPU, memory, and disk counters for the three VMs every 60 seconds. After metrics arrive, open **Azure portal > Monitor > Workbooks > Hub-Spoke VM Health**. Initial measurements may take several minutes; Log Analytics usage can incur charges.
 
-Azure permits one Network Watcher per subscription/region. The Terraform variable `create_network_watcher` defaults to `false`. Check for an existing watcher before changing it:
+The Recovery Services vault backs up each spoke VM daily at 23:00 UTC and retains 30 daily recovery points. Azure SQL uses Azure-managed standard backups; it is not included in the VM backup policy.
+
+Azure permits one Network Watcher per subscription/region. `create_network_watcher` defaults to `false`. Check for an existing watcher before changing it:
 
 ```powershell
 az network watcher list --subscription "102b28e5-3d71-4cfa-ab2e-49ea41e3d0ae" --output table
@@ -115,4 +117,4 @@ terraform plan -destroy
 terraform destroy
 ```
 
-The resource groups are Terraform-managed, so destroying the configuration removes the managed resources and those groups. Review the destroy plan first and preserve any data you need. The AzureRM provider is configured to delete VM OS disks when VMs are deleted.
+Review the destroy plan first and preserve any data you need. The AzureRM provider is configured to delete VM OS disks when VMs are deleted.

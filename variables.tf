@@ -21,10 +21,10 @@ variable "identity_resource_group_name" {
   default     = "rg-hub-spoke-identity"
 }
 
-variable "shared_data_resource_group_name" {
-  description = "Resource group for the shared Azure SQL database and private DNS"
+variable "database_resource_group_name" {
+  description = "Resource group for Azure SQL Database and its private DNS zone"
   type        = string
-  default     = "rg-hub-spoke-shared-data"
+  default     = "rg-hub-spoke-database"
 }
 
 variable "key_vault_name" {

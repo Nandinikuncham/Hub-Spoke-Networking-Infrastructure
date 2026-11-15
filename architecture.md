@@ -27,7 +27,7 @@ flowchart LR
         BastionIP --> Bastion
     end
 
-    subgraph DevelopmentRG["Development Resource Group"]
+    subgraph DevelopmentRG["Development Resource Group Spoke"]
         subgraph DevVNet["Development VNet - 10.1.0.0/16"]
             DevVM["Private Ubuntu VM - 10.1.1.0/24"]
             DevLB["Internal SSH LB - 10.1.1.10"]
@@ -36,7 +36,7 @@ flowchart LR
         end
     end
 
-    subgraph TestingRG["Testing Resource Group"]
+    subgraph TestingRG["Testing Resource Group Spoke"]
         subgraph TestVNet["Testing VNet - 10.2.0.0/16"]
             TestVM["Private Ubuntu VM - 10.2.1.0/24"]
             TestLB["Internal SSH LB - 10.2.1.10"]
@@ -45,7 +45,7 @@ flowchart LR
         end
     end
 
-    subgraph ProductionAppRG["Production App Resource Group"]
+    subgraph ProductionAppRG["Production App Resource Group Spoke"]
         subgraph AppVNet["Production App VNet - 10.3.0.0/16"]
             AppVM["Private Ubuntu VM - 10.3.1.0/24"]
             AppLB["Internal SSH LB - 10.3.1.10"]
@@ -132,7 +132,7 @@ There is no Production Data VM or `10.4.0.0/16` spoke. Azure SQL Database is the
 
 - **Connectivity:** hub VNet, Azure Firewall, Azure Bastion, VPN Gateway and their public IPs, plus the hub subnet and private endpoint for Key Vault.
 - **Identity:** Key Vault and its private DNS zone and VNet links, Log Analytics workspace, Azure Monitor data collection rule and workbook, Recovery Services vault and VM backup policy, and optionally Network Watcher.
-- **Development, Testing, Production App:** each workload VNet, VM subnet, NSG, Ubuntu VM, internal SSH load balancer, SQL private endpoint subnet, and its own SQL private DNS zone.
+- **Development Resource Group Spoke, Testing Resource Group Spoke, Production App Resource Group Spoke:** each workload VNet, VM subnet, NSG, Ubuntu VM, internal SSH load balancer, SQL private endpoint subnet, and its own SQL private DNS zone.
 - **Database:** Azure SQL logical server/database and three SQL private endpoint resources. Each endpoint connects to one spoke subnet; SQL endpoints are not placed in the hub.
 
 ## Access, routing, and operations

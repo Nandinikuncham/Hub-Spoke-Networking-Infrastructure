@@ -1,4 +1,4 @@
-subscription_id      = "00000000-0000-0000-0000-000000000000"
+subscription_id      = "102b28e5-3d71-4cfa-ab2e-49ea41e3d0ae"
 resource_group_name  = "rg-azure-hub-spoke"
 admin_source_ip_cidr = "203.0.113.10/32" # Replace with your current public IPv4 address /32
 admin_username       = "azureuser"

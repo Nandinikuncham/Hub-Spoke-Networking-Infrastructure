@@ -6,7 +6,7 @@ output "identity_resource_group_name" {
   value = azurerm_resource_group.identity.name
 }
 
-output "shared_data_resource_group_name" {
+output "database_resource_group_name" {
   value = azurerm_resource_group.shared_data.name
 }
 

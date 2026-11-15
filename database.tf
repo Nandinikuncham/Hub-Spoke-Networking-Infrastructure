@@ -35,31 +35,32 @@ resource "azapi_resource" "sql_database" {
 }
 
 resource "azurerm_private_dns_zone" "sql" {
+  for_each = local.spokes
+
   name                = "privatelink.database.windows.net"
-  resource_group_name = azurerm_resource_group.shared_data.name
+  resource_group_name = azurerm_resource_group.spoke[each.key].name
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "sql" {
-  for_each = merge(
-    { hub = azurerm_virtual_network.hub.id },
-    { for key, vnet in azurerm_virtual_network.spoke : key => vnet.id }
-  )
+  for_each = local.spokes
 
   name                  = "sql-${each.key}-link"
-  resource_group_name   = azurerm_resource_group.shared_data.name
-  private_dns_zone_name = azurerm_private_dns_zone.sql.name
-  virtual_network_id    = each.value
+  resource_group_name   = azurerm_resource_group.spoke[each.key].name
+  private_dns_zone_name = azurerm_private_dns_zone.sql[each.key].name
+  virtual_network_id    = azurerm_virtual_network.spoke[each.key].id
   registration_enabled  = false
 }
 
 resource "azurerm_private_endpoint" "sql" {
-  name                = "pe-sql-shared-data"
+  for_each = local.spokes
+
+  name                = "pe-sql-${each.key}"
   location            = var.location
-  resource_group_name = azurerm_resource_group.connectivity.name
-  subnet_id           = azurerm_subnet.private_endpoints.id
+  resource_group_name = azurerm_resource_group.shared_data.name
+  subnet_id           = azurerm_subnet.spoke_private_endpoints[each.key].id
 
   private_service_connection {
-    name                           = "psc-sql-shared-data"
+    name                           = "psc-sql-${each.key}"
     private_connection_resource_id = azurerm_mssql_server.sql.id
     subresource_names              = ["sqlServer"]
     is_manual_connection           = false
@@ -67,6 +68,8 @@ resource "azurerm_private_endpoint" "sql" {
 
   private_dns_zone_group {
     name                 = "sql-private-dns-zone-group"
-    private_dns_zone_ids = [azurerm_private_dns_zone.sql.id]
+    private_dns_zone_ids = [azurerm_private_dns_zone.sql[each.key].id]
   }
+
+  depends_on = [azurerm_subnet_network_security_group_association.spoke_private_endpoints]
 }

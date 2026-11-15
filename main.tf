@@ -196,7 +196,7 @@ resource "azurerm_linux_virtual_machine" "jump" {
   identity {
     type = "SystemAssigned"
   }
-  network_interface_ids           = [azurerm_network_interface.jump.id]
+  network_interface_ids = [azurerm_network_interface.jump.id]
 
   os_disk {
     name                 = "osdisk-jump-vm"
@@ -243,7 +243,7 @@ resource "azurerm_linux_virtual_machine" "spoke" {
   identity {
     type = "SystemAssigned"
   }
-  network_interface_ids           = [azurerm_network_interface.spoke[each.key].id]
+  network_interface_ids = [azurerm_network_interface.spoke[each.key].id]
 
   os_disk {
     name                 = "osdisk-${replace(each.key, "_", "-")}"

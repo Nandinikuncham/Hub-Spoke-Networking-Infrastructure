@@ -37,11 +37,13 @@ variable "admin_password" {
   sensitive   = true
 
   validation {
-    condition = length(var.admin_password) >= 16 &&
+    condition = (
+      length(var.admin_password) >= 16 &&
       can(regex("[A-Z]", var.admin_password)) &&
       can(regex("[a-z]", var.admin_password)) &&
       can(regex("[0-9]", var.admin_password)) &&
       can(regex("[^A-Za-z0-9]", var.admin_password))
+    )
     error_message = "Use a unique password with at least 16 characters, including uppercase and lowercase letters, a number, and a symbol."
   }
 }

@@ -1,6 +1,7 @@
-subscription_id       = "00000000-0000-0000-0000-000000000000"
-resource_group_name   = "rg-azure-hub-spoke"
-admin_source_ip_cidr  = "203.0.113.10/32" # Replace with your current public IPv4 address /32
-ssh_public_key_path   = "C:/Users/YOUR_USER/.ssh/hub_spoke_ed25519.pub"
-admin_username        = "azureadmin"
-vm_size               = "Standard_B1s"
+subscription_id      = "00000000-0000-0000-0000-000000000000"
+resource_group_name  = "rg-azure-hub-spoke"
+admin_source_ip_cidr = "203.0.113.10/32" # Replace with your current public IPv4 address /32
+admin_username       = "azureuser"
+vm_size              = "Standard_B1s"
+
+# Do not store admin_password here. Set TF_VAR_admin_password locally as described in README.md.

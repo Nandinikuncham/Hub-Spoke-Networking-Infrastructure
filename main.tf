@@ -1,25 +1,28 @@
 locals {
   spokes = {
     development = {
-      name                = "vnet-spoke-development"
-      address             = "10.1.0.0/16"
-      subnet              = "snet-development"
-      prefix              = "10.1.1.0/24"
-      resource_group_name = "rg-hub-spoke-development"
+      name                     = "vnet-spoke-development"
+      address                  = "10.1.0.0/16"
+      subnet                   = "snet-development"
+      prefix                   = "10.1.1.0/24"
+      private_endpoint_prefix  = "10.1.2.0/24"
+      resource_group_name      = "rg-hub-spoke-development"
     }
     testing = {
-      name                = "vnet-spoke-testing"
-      address             = "10.2.0.0/16"
-      subnet              = "snet-testing"
-      prefix              = "10.2.1.0/24"
-      resource_group_name = "rg-hub-spoke-testing"
+      name                     = "vnet-spoke-testing"
+      address                  = "10.2.0.0/16"
+      subnet                   = "snet-testing"
+      prefix                   = "10.2.1.0/24"
+      private_endpoint_prefix  = "10.2.2.0/24"
+      resource_group_name      = "rg-hub-spoke-testing"
     }
     production_app = {
-      name                = "vnet-spoke-prod-app"
-      address             = "10.3.0.0/16"
-      subnet              = "snet-prod-app"
-      prefix              = "10.3.1.0/24"
-      resource_group_name = "rg-hub-spoke-production-app"
+      name                     = "vnet-spoke-prod-app"
+      address                  = "10.3.0.0/16"
+      subnet                   = "snet-prod-app"
+      prefix                   = "10.3.1.0/24"
+      private_endpoint_prefix  = "10.3.2.0/24"
+      resource_group_name      = "rg-hub-spoke-production-app"
     }
   }
 }
@@ -97,6 +100,56 @@ resource "azurerm_subnet" "spoke" {
   resource_group_name  = azurerm_resource_group.spoke[each.key].name
   virtual_network_name = azurerm_virtual_network.spoke[each.key].name
   address_prefixes     = [each.value.prefix]
+}
+
+resource "azurerm_subnet" "spoke_private_endpoints" {
+  for_each = local.spokes
+
+  name                 = "snet-private-endpoints"
+  resource_group_name  = azurerm_resource_group.spoke[each.key].name
+  virtual_network_name = azurerm_virtual_network.spoke[each.key].name
+  address_prefixes     = [each.value.private_endpoint_prefix]
+
+  private_endpoint_network_policies = "NetworkSecurityGroupEnabled"
+}
+
+resource "azurerm_network_security_group" "spoke_private_endpoints" {
+  for_each = local.spokes
+
+  name                = "nsg-${each.key}-private-endpoints"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.spoke[each.key].name
+
+  security_rule {
+    name                       = "Allow-SQL-From-Local-Spoke"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "1433"
+    source_address_prefix      = each.value.address
+    destination_address_prefix = each.value.private_endpoint_prefix
+  }
+
+  security_rule {
+    name                       = "Deny-Other-VNet-Inbound"
+    priority                   = 4000
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "spoke_private_endpoints" {
+  for_each = local.spokes
+
+  subnet_id                 = azurerm_subnet.spoke_private_endpoints[each.key].id
+  network_security_group_id = azurerm_network_security_group.spoke_private_endpoints[each.key].id
 }
 
 resource "azurerm_network_security_group" "spoke" {
@@ -201,9 +254,11 @@ resource "azurerm_linux_virtual_machine" "spoke" {
   admin_username                  = var.admin_username
   admin_password                  = var.admin_password
   disable_password_authentication = false
+
   identity {
     type = "SystemAssigned"
   }
+
   network_interface_ids = [azurerm_network_interface.spoke[each.key].id]
 
   os_disk {

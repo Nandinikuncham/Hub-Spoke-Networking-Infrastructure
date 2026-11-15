@@ -8,21 +8,23 @@ See [architecture.md](./architecture.md) for the network diagram and traffic bou
 
 | Network | Address space | Subnet(s) |
 | --- | --- | --- |
-| Hub | `10.0.0.0/16` | AzureFirewallSubnet `10.0.1.0/26`; AzureBastionSubnet `10.0.2.0/26`; GatewaySubnet `10.0.3.0/27`; private endpoints `10.0.4.0/24` |
-| Development | `10.1.0.0/16` | `10.1.1.0/24` |
-| Testing | `10.2.0.0/16` | `10.2.1.0/24` |
-| Production app | `10.3.0.0/16` | `10.3.1.0/24` |
+| Hub | `10.0.0.0/16` | AzureFirewallSubnet `10.0.1.0/26`; AzureBastionSubnet `10.0.2.0/26`; GatewaySubnet `10.0.3.0/27`; Key Vault private endpoints `10.0.4.0/24` |
+| Development | `10.1.0.0/16` | VM `10.1.1.0/24`; SQL private endpoint `10.1.2.0/24` |
+| Testing | `10.2.0.0/16` | VM `10.2.1.0/24`; SQL private endpoint `10.2.2.0/24` |
+| Production app | `10.3.0.0/16` | VM `10.3.1.0/24`; SQL private endpoint `10.3.2.0/24` |
 
 The former Production Data VM/VNet and its load balancer are replaced by Azure SQL Database in a dedicated Database Resource Group. There are three spoke VMs, with no Hub VM.
 
 ## Resource groups and services
 
-- **Connectivity Resource Group:** hub VNet, Firewall, Bastion, VPN Gateway and their public IPs, plus private endpoints for SQL and Key Vault.
+- **Connectivity Resource Group:** hub VNet, Firewall, Bastion, VPN Gateway and their public IPs, plus the private endpoint for Key Vault.
 - **Identity Resource Group:** Key Vault, Key Vault private DNS zone, Log Analytics workspace, Azure Monitor data collection rule and workbook, Recovery Services vault and VM backup policy. Network Watcher creation is optional and disabled by default.
-- **Development, Testing, Production App Resource Groups:** each workload VNet/subnet, NSG, private Ubuntu VM, and Standard internal SSH load balancer.
-- **Database Resource Group:** Azure SQL logical server/database and SQL private DNS zone.
+- **Development, Testing, Production App Resource Groups:** each workload VNet/subnet, NSG, private Ubuntu VM, SQL private endpoint subnet, and internal SSH load balancer.
+- **Database Resource Group:** Azure SQL logical server/database and three SQL private endpoint resources, one attached to each spoke's private endpoint subnet. Each spoke has its own private DNS zone so it resolves only its local SQL endpoint.
 
-The Key Vault private endpoint is in the hub. Its private DNS zone is linked to the hub and all three spokes, so each workload can resolve the private vault address. SQL has a separate private endpoint and private DNS zone linked to the same VNets. VNet peering supplies network reachability; it does not grant data-plane permissions.
+SQL public network access is disabled. The SQL DNS zones are linked only to their corresponding spokes, not the hub. Each endpoint subnet allows TCP 1433 from its local spoke address space and denies other VNet sources, including the hub. This keeps SQL access private and workload-specific without relying on spoke-to-spoke routing.
+
+The Key Vault private endpoint is in the hub. Its private DNS zone is linked to the hub and all three spokes, so each workload can resolve the private vault address. VNet peering supplies network reachability; it does not grant data-plane permissions.
 
 The Recovery Services vault protects the three spoke VMs with daily backups retained for 30 days. Azure SQL uses Azure-managed standard backups only; SQL is not protected by the Recovery Services vault and no long-term retention policy is configured.
 
@@ -32,7 +34,7 @@ The Recovery Services vault protects the three spoke VMs with daily backups reta
 - Each spoke has an internal TCP 22 load balancer with one VM backend. These are private SSH front ends, not a high-availability pool.
 - The hub and each spoke have bidirectional VNet peering. Peering is direct: there are no UDRs or forced routes through the Firewall, and the Firewall does not filter direct spoke traffic. Firewall rules are not configured.
 - A VPN Gateway resource is provisioned in the hub; a VPN connection requires its own configuration.
-- The SQL logical server has public network access disabled. The private endpoint and private DNS provide network reachability; application/database users and least-privilege permissions must be configured separately.
+- The SQL logical server has public network access disabled. SQL private endpoints and per-spoke DNS provide connectivity only to the workload spokes. Database users and least-privilege permissions must still be configured separately.
 
 ## Credentials and Terraform state
 
@@ -53,7 +55,7 @@ Terraform marks both values sensitive in CLI output, but Terraform state can sti
 
 - Terraform 1.5 or later, Azure CLI, and VS Code.
 - Azure permissions at subscription scope to create resource groups and the configured resources.
-- Check Central India service availability, subscription quota, and current pricing. Firewall, Bastion, VPN Gateway, public IPs, load balancers, private endpoints, VM backups, Log Analytics ingestion/retention, storage, and SQL usage can incur charges. The Azure SQL free-tier limits do not make the rest of the architecture free.
+- Check Central India service availability, subscription quota, and current pricing. Firewall, Bastion, VPN Gateway, public IPs, load balancers, private endpoints, VM backups, SQL metric ingestion, Log Analytics retention, and SQL usage can incur charges. The Azure SQL free-tier limits do not make the rest of the architecture free.
 
 Sign in with your Azure CLI identity and select the target subscription:
 
@@ -96,7 +98,7 @@ After deployment, use **Azure portal > Bastion** on the hub Bastion host to conn
 
 ## Monitoring, backups, and Network Watcher
 
-Azure Monitor Linux Agent and a data collection rule collect CPU, memory, and disk counters for the three VMs every 60 seconds. After metrics arrive, open **Azure portal > Monitor > Workbooks > Hub-Spoke VM Health**. Initial measurements may take several minutes; Log Analytics usage can incur charges.
+Azure Monitor Linux Agent and a data collection rule collect CPU, memory, and disk counters for the three VMs every 60 seconds. A SQL diagnostic setting streams Basic database metrics to the same Log Analytics workspace. After data arrives, open **Azure portal > Monitor > Workbooks > Hub-Spoke VM Health** for VM and SQL performance charts. Initial measurements may take several minutes; Log Analytics ingestion can incur charges.
 
 The Recovery Services vault backs up each spoke VM daily at 23:00 UTC and retains 30 daily recovery points. Azure SQL uses Azure-managed standard backups; it is not included in the VM backup policy.
 

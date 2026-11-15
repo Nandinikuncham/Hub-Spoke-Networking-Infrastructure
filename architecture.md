@@ -1,6 +1,6 @@
 # Azure Hub-and-Spoke Network Architecture
 
-This project defines an Azure hub-and-spoke network in Central India. Administrators connect to the hub jump VM through a static public IP; no VPN is used.
+This project provisions five Ubuntu VMs in Central India: one public-facing jump VM in the hub and one private VM in each spoke. No VPN is used.
 
 ## Network topology
 
@@ -13,35 +13,53 @@ flowchart TB
         subgraph hub["Hub VNet · 10.0.0.0/16"]
             hubvnet["Hub network"]
             subgraph management["Management subnet · 10.0.1.0/24"]
-                jump["Linux jump VM<br/>SSH key authentication"]
+                jump["Ubuntu jump VM · azureuser<br/>Password-based SSH · public IP"]
                 hubnsg["Hub NSG<br/>Allow TCP/22 from admin /32"]
+                hubdisk["Managed OS disk<br/>Deleted with VM"]
             end
         end
         subgraph development["Development spoke · 10.1.0.0/16"]
             devvnet["VNet"]
-            devsubnet["snet-development · 10.1.1.0/24<br/>Spoke NSG"]
+            devsubnet["snet-development · 10.1.1.0/24"]
+            devvm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
+            devdisk["Managed OS disk<br/>Deleted with VM"]
         end
         subgraph testing["Testing spoke · 10.2.0.0/16"]
             testvnet["VNet"]
-            testsubnet["snet-testing · 10.2.1.0/24<br/>Spoke NSG"]
+            testsubnet["snet-testing · 10.2.1.0/24"]
+            testvm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
+            testdisk["Managed OS disk<br/>Deleted with VM"]
         end
         subgraph production_app["Production app spoke · 10.3.0.0/16"]
             appvnet["VNet"]
-            appsubnet["snet-prod-app · 10.3.1.0/24<br/>Spoke NSG"]
+            appsubnet["snet-prod-app · 10.3.1.0/24"]
+            appvm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
+            appdisk["Managed OS disk<br/>Deleted with VM"]
         end
         subgraph production_data["Production data spoke · 10.4.0.0/16"]
             datavnet["VNet"]
-            datasubnet["snet-prod-data · 10.4.1.0/24<br/>Spoke NSG"]
+            datasubnet["snet-prod-data · 10.4.1.0/24"]
+            datavm["Ubuntu VM · private IP<br/>SSH allowed from hub subnet"]
+            datadisk["Managed OS disk<br/>Deleted with VM"]
         end
     end
 
-    admin -->|"SSH TCP/22 · source restricted to admin /32"| publicip
+    admin -->|"SSH TCP/22 · admin /32"| publicip
     publicip -->|"NIC association"| jump
     hubnsg -.-> jump
+    jump --- hubdisk
     hubvnet <-->|"VNet peering"| devvnet
     hubvnet <-->|"VNet peering"| testvnet
     hubvnet <-->|"VNet peering"| appvnet
     hubvnet <-->|"VNet peering"| datavnet
+    jump -->|"SSH to private IP"| devvm
+    jump -->|"SSH to private IP"| testvm
+    jump -->|"SSH to private IP"| appvm
+    jump -->|"SSH to private IP"| datavm
+    devvm --- devdisk
+    testvm --- testdisk
+    appvm --- appdisk
+    datavm --- datadisk
 ```
 
 ## Network address plan
@@ -57,10 +75,11 @@ flowchart TB
 ## Access and boundaries
 
 - **No VPN:** No VPN gateway or connection is deployed.
-- **Public entry point:** The jump VM is the only resource with a public IP. Inbound SSH is restricted to the administrator's current public IPv4 `/32` and uses SSH key authentication.
-- **Private spoke access:** Hub-to-spoke VNet peerings carry traffic between the management network and spokes. Spoke NSGs allow SSH from the hub management subnet and deny other virtual-network inbound traffic.
-- **No spoke workloads:** The Terraform configuration creates network infrastructure and the jump VM, but does not create workload VMs in the spokes.
-- **No firewall or forced tunneling:** The configuration does not include Azure Firewall or custom route tables. Spokes are not directly peered to one another.
-- **Changing public IP:** Update the SSH source CIDR when the administrator's public IP changes.
+- **Public entry point:** Only the hub VM has a public IP. SSH is restricted to the administrator's current public IPv4 `/32`.
+- **Password authentication:** All five Ubuntu VMs use the `azureuser` account and a password supplied locally through a sensitive Terraform variable. No SSH keys are configured. Use a new strong password; never commit it to GitHub.
+- **Private spoke access:** Spoke VMs have no public IP. Their NSGs allow SSH only from the hub management subnet; connect to them from the jump VM over hub-to-spoke peering.
+- **Disk cleanup:** AzureRM is configured to delete managed OS disks when their VMs are deleted.
+- **No firewall or spoke-to-spoke peering:** Hub-to-spoke peering is direct. There is no Azure Firewall, forced tunneling, VPN, or direct spoke-to-spoke peering.
+- **Costs:** Five running VMs, their managed disks, and the Standard public IP can incur charges. Free-trial coverage is not guaranteed.
 
-Review the Terraform plan, access rules, and Azure costs before applying infrastructure.
+Review access rules, the Terraform plan, and Azure costs before applying infrastructure.

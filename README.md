@@ -1,6 +1,6 @@
 # Azure Hub-Spoke Networking Case Study
 
-Terraform configuration for a Central India hub-and-spoke landing zone with three workload spokes, shared identity and monitoring services, and a private Azure SQL Database. This is a case-study project; no Azure resources have been deployed from this change. Review the plan, quotas, and current Azure costs before deploying.
+Terraform configuration for a Central India hub-and-spoke landing zone with three workload spokes, shared Key Vault, monitoring, and backup services, and a private Azure SQL Database. This is a case-study project; no Azure resources have been deployed from this change. Review the plan, quotas, and current Azure costs before deploying.
 
 ## Architecture
 
@@ -18,11 +18,11 @@ The former Production Data VM/VNet and its load balancer are replaced by Azure S
 ## Resource groups and services
 
 - **Connectivity Resource Group:** hub VNet, Firewall, Bastion, VPN Gateway and their public IPs, plus the private endpoint for Key Vault.
-- **Identity Resource Group:** Key Vault, Key Vault private DNS zone, Log Analytics workspace, Azure Monitor data collection rule and workbook, Recovery Services vault and VM backup policy. Network Watcher creation is optional and disabled by default.
-- **Development, Testing, Production App Resource Groups:** each workload VNet/subnet, NSG, private Ubuntu VM, SQL private endpoint subnet, and internal SSH load balancer.
+- **Monitoring and Backup Resource Group (Terraform Identity Resource Group):** Key Vault, Key Vault private DNS zone, Log Analytics workspace, Azure Monitor data collection rule and workbook, Recovery Services vault and VM backup policy. Network Watcher creation is optional and disabled by default.
+- **Development Resource Group Spoke, Testing Resource Group Spoke, Production App Resource Group Spoke:** each workload VNet/subnet, NSG, private Ubuntu VM, SQL private endpoint subnet, and internal SSH load balancer.
 - **Database Resource Group:** Azure SQL logical server/database and three SQL private endpoint resources, one attached to each spoke's private endpoint subnet. Each spoke has its own private DNS zone so it resolves only its local SQL endpoint.
 
-SQL public network access is disabled. The SQL DNS zones are linked only to their corresponding spokes, not the hub. Each endpoint subnet allows TCP 1433 from its local spoke address space and denies other VNet sources, including the hub. This keeps SQL access private and workload-specific without relying on spoke-to-spoke routing.
+The Monitoring and Backup Resource Group label is for clarity; Terraform's `identity_resource_group_name` variable and Azure resource names remain unchanged. SQL public network access is disabled. The SQL DNS zones are linked only to their corresponding spokes, not the hub. Each endpoint subnet allows TCP 1433 from its local spoke address space and denies other VNet sources, including the hub. This keeps SQL access private and workload-specific without relying on spoke-to-spoke routing.
 
 The Key Vault private endpoint is in the hub. Its private DNS zone is linked to the hub and all three spokes, so each workload can resolve the private vault address. VNet peering supplies network reachability; it does not grant data-plane permissions.
 
